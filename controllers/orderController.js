@@ -1,6 +1,9 @@
 import Order from "../Models/order.js";
+import Product from "../Models/product.js";
 
-export function createOrder(req,res){
+
+
+export async function createOrder(req,res){
     if(req.user == null){
         res.status(401).json({
             message : "Unauthorized"
@@ -15,13 +18,13 @@ export function createOrder(req,res){
         name : body.name,
         address : body.address,
         phoneNumber : body.phoneNumber,
-        billItem : [],
+        billItems : [],
         total : 0
 
     }
     const lastBills = Order.find().sort({
         date : -1
-    }).limit(1).then((lastBills)=>{
+    }).limit(1).then(async (lastBills)=>{
         if(lastBills.length == 0) {
             orderData.orderId = "ORD0001"
         }else{
@@ -38,19 +41,38 @@ export function createOrder(req,res){
         
         }
 
-        for(let i = 0; i< body.billItems.length; i++){
+        for (let i = 0; i < body.billItems.length; i++) {
+  const item = await Product.findOne({
+    productId: body.billItems[i].productId,
+  });
 
-            const billItem = body.billItems[i];
+  if (!item) {
+    res.status(404).json({
+      message: "Product with productId " + body.billItems[i].productId + " not found",
+    });
+    return;
+  }
 
-            //Check if product exists
-            
-        }
+  orderData.billItems.push({
+    productId: item.productId,
+    productName: item.name,
+    image: item.images?.[0] || "",
+    quantity: body.billItems[i].quantity,
+    price: item.price,
+  });
+
+  orderData.total += item.price * body.billItems[i].quantity;
+}
+
         
         const order = new Order(orderData);
-        order.save().then(()=>{
+        order.save().then((savedOrder)=>{
+           console.log("✅ Order saved:", savedOrder);
+
             res.json({
-                message : "Order saved successfully"
-            });
+            message: "Order saved successfully",
+            order: savedOrder, // optional: also return it to frontend
+  });
         
         }).catch((err)=> {
             console.log(err);
@@ -105,3 +127,49 @@ export function getOrders(req,res){
 
 }
  
+export async function  updateOrder (req,res){
+
+    try {
+
+        const { status } = req.body;
+
+
+        if(req.user == null){
+
+            res.status(403).json({
+                message : "Please login before change data"
+            })
+            return
+        }
+
+        if(req.user.role != "admin"){
+
+            res.status(403).json({
+                message : "Not Authorized"
+            })
+            return
+
+        }
+
+        const orderId = req.params.orderId;
+        const order = await Order.findOneAndUpdate(
+            { orderId },             
+            { status },
+            { new: true }
+        );
+
+        res.json({
+
+            message : "Order updated successfully"
+
+        });
+
+    } catch (error) {
+
+        res.status(500).json({
+            message : "order not updated"
+        })
+        
+    }
+
+}
