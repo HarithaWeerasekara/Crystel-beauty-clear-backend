@@ -117,17 +117,19 @@ export async function googleLogin(req,res) {
 
         let userData;
         if (user == null) {
+            // Generate a random password for the new user
+            const randomPassword = bcrypt.hashSync(Math.random().toString(36).slice(-8), 10);
             const newUser = new User({
                 email: response.data.email,
                 firstName: response.data.given_name,
                 lastName: response.data.family_name,
                 role: "user",
                 isEmailVerified: true,
-                password: accessToken // Consider hashing or generating a random password
+                password: randomPassword
             });
-
+        
             await newUser.save();
-
+        
             userData = {
                 email: response.data.email,
                 firstName: response.data.given_name,
@@ -144,8 +146,8 @@ export async function googleLogin(req,res) {
                 lastName: user.lastName,
                 role: user.role,
                 phone: user.phone || "Not given",
-                isDisabled: user.isDisabled || false,
-                isEmailVerified: user.isEmailVerified || false
+                isDisabled: user.isDisabled != null ? user.isDisabled : false,
+                isEmailVerified: user.isEmailVerified != null ? user.isEmailVerified : false
             };
         }
 
@@ -174,7 +176,7 @@ export function getUser(req, res) {
 
         res.status(403).json({
             message: "Please login before get data"
-        })
+        });
         return;
     }
 
@@ -184,13 +186,17 @@ export function getUser(req, res) {
         if (user == null) {
             res.status(404).json({
                 message: "User not found"
-            })
+            });
+            return;
         } else {
             res.json(user);
+            return;
         }
-    }).catch(() => {
+    }).catch((error) => {
         res.status(500).json({
-            message: "Error retrieving user"
-        })
-    })
+            message: "Error retrieving user",
+            error: error.message
+        });
+        return;
+    });
 }
