@@ -167,3 +167,30 @@ export async function googleLogin(req,res) {
 
     
 }
+
+export function getUser(req, res) {
+
+    if (req.user == null) {
+
+        res.status(403).json({
+            message: "Please login before get data"
+        })
+        return;
+    }
+
+    User.findOne({
+        email: req.user.email
+    }).then((user) => {
+        if (user == null) {
+            res.status(404).json({
+                message: "User not found"
+            })
+        } else {
+            res.json(user);
+        }
+    }).catch(() => {
+        res.status(500).json({
+            message: "Error retrieving user"
+        })
+    })
+}
