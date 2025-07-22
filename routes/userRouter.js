@@ -1,5 +1,5 @@
 import express from "express";
-import { getUser, googleLogin, loginUser, saveUser } from "../controllers/userController.js";
+import { changePassword, getUser, googleLogin, loginUser, saveUser, sendOTP } from "../controllers/userController.js";
 
 const userRouter = express.Router();
 
@@ -7,6 +7,10 @@ userRouter.post("/",saveUser)
 userRouter.get("/",getUser)
 userRouter.post("/login",loginUser)
 userRouter.post("/google",googleLogin)
+userRouter.post("/send-otp", sendOTP);
+userRouter.post("/changePW", changePassword);
+
+
 
 
 
