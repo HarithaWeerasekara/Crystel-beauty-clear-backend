@@ -134,3 +134,26 @@ export function updateProduct(req, res) {
     });
 }
 
+export async function searchProducts(req,res){
+    try{
+        const search = req.params.id;
+        const product = await Product.find({
+        
+            $or: [
+                { name: { $regex: search, $options: 'i' } },
+        { altNames: { $regex: search, $options: 'i' } }
+            ],
+
+        
+        })
+        res.json({
+            products : product
+        })
+    }catch(err){
+        console.log(err);
+        res.status(500).json({
+            message : "Products not found"
+        })
+    }
+        
+}
