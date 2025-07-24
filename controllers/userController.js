@@ -4,7 +4,6 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv"
 import axios from "axios";
 import nodemailer from "nodemailer";
-import Otp from "../Models/otp.js";
 import OTP from "../Models/otp.js";
 dotenv.config()
 
@@ -299,5 +298,80 @@ export async function changePassword(req, res) {
         res.status(500).json({
             message: "Error changing password"
         });
+    }
+}
+
+
+
+export async function blockUser(req, res) {
+    try {
+        const adminUser = req.user;
+        const { userId } = req.params; // ⚠️ Must come from params, not body!
+
+        console.log("🔐 Authenticated user:", adminUser);
+        console.log("📦 Received userId to block:", userId);
+
+        // Check if requester is admin
+        if (adminUser.role !== "admin") {
+            console.warn("⛔ Not authorized: role =", adminUser.role);
+            return res.status(403).json({ message: "Not Authorized" });
+        }
+
+        // Find the user to be blocked
+        const user = await User.findById(userId);
+        if (!user) {
+            console.warn("❌ User not found for ID:", userId);
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Update user status
+        user.isDisabled = true;
+        user.isEmailVerified = false;
+
+        await user.save();
+
+        console.log("✅ User blocked successfully:", user.email);
+
+        return res.status(200).json({ message: "User blocked successfully" });
+
+    } catch (error) {
+        console.error("🔥 Error in blockUser controller:", error);
+        return res.status(500).json({ message: "Error blocking user" });
+    }
+}
+
+export async function getAllUsers(req, res) {
+    try {
+        const users = await User.find({}).select("-password -__v");
+        return res.status(200).json(users);
+    } catch (error) {
+        console.error("🔥 Error fetching users:", error);
+        return res.status(500).json({ message: "Error fetching users" });
+    }
+}
+
+export async function unblockUser(req, res) {
+    try {
+        const adminUser = req.user;
+        const { userId } = req.params;
+
+        if (adminUser.role !== "admin") {
+            return res.status(403).json({ message: "Not Authorized" });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        user.isDisabled = false;
+        user.isEmailVerified = true;
+
+        await user.save();
+
+        res.status(200).json({ message: "User unblocked successfully" });
+    } catch (error) {
+        console.error("❌ Error unblocking user:", error);
+        res.status(500).json({ message: "Error unblocking user" });
     }
 }
