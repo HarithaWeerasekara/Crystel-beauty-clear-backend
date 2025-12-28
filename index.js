@@ -25,7 +25,6 @@ mongoose.connect(process.env.MONGO_URL).then(
 )
 
 app.use(bodyparser.json())
-app.use(verifyJWT)
 
 
 app.use("/api/user", userRouter);
