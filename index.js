@@ -3,7 +3,7 @@ import bodyparser from 'body-parser';
 import mongoose from 'mongoose';
 import userRouter from './routes/userRouter.js';
 import productRouter from './routes/productRouter.js';
-import verifyJWT from './middleware/auth.js';
+
 import orderRouter from './routes/orderRouter.js';
 import dotenv from 'dotenv';
 import cors from 'cors'
