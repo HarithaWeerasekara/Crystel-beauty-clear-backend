@@ -264,43 +264,68 @@ export async function sendOTP(req, res) {
 
 
 export async function changePassword(req, res) {
-  const { email, password, otp } = req.body;
-
   try {
-    // 1️⃣ Check OTP
-    const lastOTPData = await OTP.findOne({ email }).sort({ createdAt: -1 });
+    const { email, password, otp } = req.body;
 
-    if (!lastOTPData) {
-      return res.status(404).json({ message: "OTP not found or expired" });
+    // 0️⃣ Basic validation
+    if (!email || !password || !otp) {
+      return res.status(400).json({
+        message: "Email, OTP and password are required",
+      });
     }
 
-    // 2️⃣ Compare OTP (convert type)
-    if (String(lastOTPData.otp) !== String(otp)) {
-      return res.status(400).json({ message: "Invalid OTP" });
+    // 1️⃣ Get latest OTP
+    const otpData = await OTP.findOne({ email }).sort({ createdAt: -1 });
+
+    if (!otpData) {
+      return res.status(404).json({
+        message: "OTP not found or expired",
+      });
     }
 
-    // 3️⃣ Check user exists
+    // 2️⃣ Verify OTP
+    if (String(otpData.otp) !== String(otp)) {
+      return res.status(400).json({
+        message: "Invalid OTP",
+      });
+    }
+
+    // 3️⃣ Check user
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({
+        message: "User not found",
+      });
     }
 
-    // 4️⃣ Hash password
+    // 4️⃣ Password strength (optional but recommended)
+    if (password.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    // 5️⃣ Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     user.password = hashedPassword;
     await user.save();
 
-    // 5️⃣ Remove OTPs
+    // 6️⃣ Delete OTP (prevents reuse)
     await OTP.deleteMany({ email });
 
-    res.status(200).json({ message: "Password changed successfully" });
+    return res.status(200).json({
+      message: "Password changed successfully",
+    });
 
   } catch (error) {
-    console.error("Error changing password:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Change password error:", error);
+    return res.status(500).json({
+      message: "Server error",
+    });
   }
 }
+
 
 
 
