@@ -26,7 +26,7 @@ mongoose.connect(process.env.MONGO_URL).then(
 
 app.use(bodyparser.json())
 
-import cors from "cors";
+
 
 app.use(
   cors({
