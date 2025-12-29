@@ -225,29 +225,22 @@ export async function sendOTP(req, res) {
       return res.status(400).json({ message: "Email is required" });
     }
 
-    // 🔥 DELETE OLD OTP (FIX FOR DUPLICATE KEY ERROR)
+    // 🔥 Remove old OTPs (prevents duplicate key error)
     await OTP.deleteMany({ email });
 
     // ✅ Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // ✅ Save new OTP
-    await OTP.create({
-      email,
-      otp,
-      createdAt: new Date(),
-    });
+    // ✅ Save OTP
+    await OTP.create({ email, otp });
 
-    // ✅ Email message
-    const message = {
-      from: "Harithaweerasekara128@gmail.com",
+    // ✅ Send email
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
       to: email,
       subject: "OTP for Crystel Beauty Clear",
       text: `Your OTP is ${otp}`,
-    };
-
-    // ✅ Send email
-    await transporter.sendMail(message);
+    });
 
     return res.status(200).json({
       message: "OTP sent successfully",
@@ -260,6 +253,7 @@ export async function sendOTP(req, res) {
     });
   }
 }
+
 
 
 
