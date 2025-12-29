@@ -217,44 +217,50 @@ export function getUser(req, res) {
     });
 }
 
-export async function sendOTP (req,res){
+export async function sendOTP(req, res) {
+  try {
+    const { email } = req.body;
 
-    const email = req.body.email;
-    const otp = Math.floor(Math.random() * 90000) + 10000  
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    // 🔥 DELETE OLD OTP (FIX FOR DUPLICATE KEY ERROR)
+    await OTP.deleteMany({ email });
+
+    // ✅ Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // ✅ Save new OTP
+    await OTP.create({
+      email,
+      otp,
+      createdAt: new Date(),
+    });
+
+    // ✅ Email message
     const message = {
+      from: "Harithaweerasekara128@gmail.com",
+      to: email,
+      subject: "OTP for Crystel Beauty Clear",
+      text: `Your OTP is ${otp}`,
+    };
 
-        from: "Harithaweerasekara128@gmail.com",
-        to: email,
-        subject: "OTP for Crystel Beauty Clear",
-        text: `Your OTP is ${otp}`
+    // ✅ Send email
+    await transporter.sendMail(message);
 
+    return res.status(200).json({
+      message: "OTP sent successfully",
+    });
 
-    }
-    const newOtp = new OTP({
-        email: email,
-        otp: otp
-    })
-    
-    newOtp.save().then(()=>{
-        console.log("OTP saved successfully");
-    }
-    )
-    
-
-    transporter.sendMail(message).then(()=>{
-        res.status(200).json({
-            message : "OTP sent successfully",
-            otp : otp
-        })
-    }).catch(()=>{
-        res.status(500).json({
-            message : "Failed to send OTP"
-        })
-    })
-    return;
-    
-
+  } catch (error) {
+    console.error("Send OTP error:", error);
+    return res.status(500).json({
+      message: "Failed to send OTP",
+    });
+  }
 }
+
 
 
 export async function changePassword(req, res) {
