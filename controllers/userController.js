@@ -5,18 +5,10 @@ import dotenv from "dotenv"
 import axios from "axios";
 import nodemailer from "nodemailer";
 import OTP from "../Models/otp.js";
+import transporter from "../config/mail.js";
 dotenv.config()
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER, // ✅ from env
-    pass: process.env.EMAIL_PASS, // ✅ app password
-  },
-});
+
 
 
 export function saveUser(req, res) {
@@ -224,7 +216,7 @@ export async function sendOTP(req, res) {
       return res.status(400).json({ message: "Email is required" });
     }
 
-    // 🔁 Prevent OTP spam (1 min cooldown)
+    // ⏱ Prevent OTP spam (1 min)
     const recentOTP = await OTP.findOne({ email }).sort({ createdAt: -1 });
     if (recentOTP) {
       const diff = Date.now() - new Date(recentOTP.createdAt).getTime();
@@ -235,16 +227,16 @@ export async function sendOTP(req, res) {
       }
     }
 
-    // 🔥 Remove old OTPs
+    // 🧹 Remove old OTPs
     await OTP.deleteMany({ email });
 
-    // 🔐 Generate 6-digit OTP
+    // 🔐 Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     // 💾 Save OTP
     await OTP.create({ email, otp });
 
-    // ✉️ Send Email
+    // ✉️ Send email
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
@@ -252,20 +244,17 @@ export async function sendOTP(req, res) {
       text: `Your OTP is ${otp}. It will expire in 5 minutes.`,
     });
 
-    return res.status(200).json({
-      message: "OTP sent successfully",
-    });
+    return res.status(200).json({ message: "OTP sent successfully" });
+
   } catch (error) {
     console.error("Send OTP error:", error);
-    return res.status(500).json({
-      message: "Failed to send OTP",
-    });
+    return res.status(500).json({ message: "Failed to send OTP" });
   }
 }
 
-
-
-
+/* =========================
+   CHANGE PASSWORD
+========================= */
 export async function changePassword(req, res) {
   try {
     const { email, password, otp } = req.body;
@@ -274,35 +263,30 @@ export async function changePassword(req, res) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // 🔍 Find latest OTP
     const otpData = await OTP.findOne({ email }).sort({ createdAt: -1 });
-
     if (!otpData) {
       return res.status(404).json({ message: "OTP expired or not found" });
     }
 
-    // ❌ Invalid OTP
     if (String(otpData.otp) !== String(otp)) {
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    // 👤 Find user
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 🔐 Hash new password
     const hashedPassword = await bcrypt.hash(password, 10);
     user.password = hashedPassword;
     await user.save();
 
-    // 🧹 Delete OTPs
     await OTP.deleteMany({ email });
 
     return res.status(200).json({
       message: "Password changed successfully",
     });
+
   } catch (error) {
     console.error("Change password error:", error);
     return res.status(500).json({ message: "Server error" });
