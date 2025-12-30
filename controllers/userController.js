@@ -8,15 +8,14 @@ import OTP from "../Models/otp.js";
 dotenv.config()
 
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // true for 465, false for other ports
-
-    auth: {
-        user: "Harithaweerasekara128@gmail.com",
-        pass: (process.env.PASS)
-    }
+  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER, // ✅ from env
+    pass: process.env.EMAIL_PASS, // ✅ app password
+  },
 });
 
 
@@ -225,27 +224,37 @@ export async function sendOTP(req, res) {
       return res.status(400).json({ message: "Email is required" });
     }
 
-    // 🔥 Remove old OTPs (prevents duplicate key error)
+    // 🔁 Prevent OTP spam (1 min cooldown)
+    const recentOTP = await OTP.findOne({ email }).sort({ createdAt: -1 });
+    if (recentOTP) {
+      const diff = Date.now() - new Date(recentOTP.createdAt).getTime();
+      if (diff < 60 * 1000) {
+        return res.status(429).json({
+          message: "Please wait 1 minute before requesting another OTP",
+        });
+      }
+    }
+
+    // 🔥 Remove old OTPs
     await OTP.deleteMany({ email });
 
-    // ✅ Generate 6-digit OTP
+    // 🔐 Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // ✅ Save OTP
+    // 💾 Save OTP
     await OTP.create({ email, otp });
 
-    // ✅ Send email
+    // ✉️ Send Email
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
       subject: "OTP for Crystel Beauty Clear",
-      text: `Your OTP is ${otp}`,
+      text: `Your OTP is ${otp}. It will expire in 5 minutes.`,
     });
 
     return res.status(200).json({
       message: "OTP sent successfully",
     });
-
   } catch (error) {
     console.error("Send OTP error:", error);
     return res.status(500).json({
@@ -261,62 +270,42 @@ export async function changePassword(req, res) {
   try {
     const { email, password, otp } = req.body;
 
-    // 0️⃣ Basic validation
     if (!email || !password || !otp) {
-      return res.status(400).json({
-        message: "Email, OTP and password are required",
-      });
+      return res.status(400).json({ message: "All fields are required" });
     }
 
-    // 1️⃣ Get latest OTP
+    // 🔍 Find latest OTP
     const otpData = await OTP.findOne({ email }).sort({ createdAt: -1 });
 
     if (!otpData) {
-      return res.status(404).json({
-        message: "OTP not found or expired",
-      });
+      return res.status(404).json({ message: "OTP expired or not found" });
     }
 
-    // 2️⃣ Verify OTP
+    // ❌ Invalid OTP
     if (String(otpData.otp) !== String(otp)) {
-      return res.status(400).json({
-        message: "Invalid OTP",
-      });
+      return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    // 3️⃣ Check user
+    // 👤 Find user
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    // 4️⃣ Password strength (optional but recommended)
-    if (password.length < 6) {
-      return res.status(400).json({
-        message: "Password must be at least 6 characters",
-      });
-    }
-
-    // 5️⃣ Hash password
+    // 🔐 Hash new password
     const hashedPassword = await bcrypt.hash(password, 10);
-
     user.password = hashedPassword;
     await user.save();
 
-    // 6️⃣ Delete OTP (prevents reuse)
+    // 🧹 Delete OTPs
     await OTP.deleteMany({ email });
 
     return res.status(200).json({
       message: "Password changed successfully",
     });
-
   } catch (error) {
     console.error("Change password error:", error);
-    return res.status(500).json({
-      message: "Server error",
-    });
+    return res.status(500).json({ message: "Server error" });
   }
 }
 

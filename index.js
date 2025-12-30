@@ -2,7 +2,6 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
-import bodyParser from "body-parser";
 
 import userRouter from "./routes/userRouter.js";
 import productRouter from "./routes/productRouter.js";
@@ -13,7 +12,7 @@ dotenv.config();
 const app = express();
 
 /* =========================
-   CORS (FIXED)
+   CORS (PRODUCTION SAFE)
 ========================= */
 app.use(
   cors({
@@ -27,14 +26,13 @@ app.use(
   })
 );
 
-// 🔥 VERY IMPORTANT (preflight support)
+// ✅ Preflight support
 app.options("*", cors());
 
 /* =========================
    MIDDLEWARE
 ========================= */
 app.use(express.json());
-app.use(bodyParser.json());
 
 /* =========================
    ROUTES
@@ -44,17 +42,17 @@ app.use("/api/product", productRouter);
 app.use("/api/order", orderRouter);
 
 /* =========================
-   DB
+   DATABASE
 ========================= */
 mongoose
   .connect(process.env.MONGO_URL)
-  .then(() => console.log("Connected to database"))
-  .catch(() => console.log("DB connection failed"));
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.error("MongoDB error:", err));
 
 /* =========================
    SERVER
 ========================= */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
